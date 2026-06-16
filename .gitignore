@@ -1,0 +1,18 @@
+# Raw dataset — too large for git
+BraTS2024-BraTS-GLI-TrainingData/
+BraTS2024-BraTS-GLI-AdditionalTrainingData/
+BraTS2024-BraTS-GLI-ValidationData/
+*.zip
+
+# Preprocessed H5 files — too large for git
+processed/
+
+# Project internals
+CLAUDE.md
+data_playing.py
+
+# IDE
+.idea/
+*.pyc
+__pycache__/
+.DS_Store
