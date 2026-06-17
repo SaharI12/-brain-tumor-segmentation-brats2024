@@ -1,0 +1,5 @@
+h5py==3.12.1
+matplotlib==3.11.0
+nibabel==5.4.2
+numpy==2.4.6
+tqdm==4.66.5
