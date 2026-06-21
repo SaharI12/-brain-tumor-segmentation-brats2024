@@ -39,7 +39,7 @@ def evaluate(args):
     )
 
     val_files = get_val_files(
-        data_dir=ckpt_args.get("data_dir", args.data_dir),
+        data_dir=args.data_dir,
         val_split=ckpt_args.get("val_split", args.val_split),
         seed=ckpt_args.get("seed", args.seed),
     )
