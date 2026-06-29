@@ -17,6 +17,7 @@ exploration_output/
 # Project internals
 CLAUDE.md
 data_playing.py
+SUGGESTIONS.md
 
 # IDE
 .idea/
