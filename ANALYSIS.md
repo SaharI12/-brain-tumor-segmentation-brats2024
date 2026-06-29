@@ -153,7 +153,40 @@ The model assigns **6× higher entropy to its own mistakes** (FP regions) compar
 
 ---
 
-## 7. Discussion
+## 7. Comparison with Published Methods
+
+> **Important caveats before reading this table:**
+> 1. **Post-treatment vs pre-treatment:** BraTS 2024 GLI is a post-treatment dataset. All BraTS 2021/2022/2023 results below are on pre-treatment data, which is an entirely different clinical scenario (no surgery cavities, radiation effects, or pseudoprogression). Numbers are **not directly comparable**.
+> 2. **Metric definition:** BraTS 2023 and 2024 introduced **lesion-wise** DSC/HD95 (evaluated per individual lesion, then averaged). We compute the classical **scan-level** DSC/HD95 (whole volume). Lesion-wise metrics are generally harder and produce lower numbers.
+> 3. **Evaluation set:** Our results are on an **internal holdout** (20% of training set, n=324). All challenge results below are from the **official leaderboard** evaluated on hidden test/validation sets.
+
+### 7a. BraTS 2024 GLI — Post-Treatment (Same Task)
+
+| Method | DSC TC ↑ | DSC WT ↑ | DSC ET ↑ | Eval set | Metric |
+|--------|----------|----------|----------|----------|--------|
+| **Ours — 3D U-Net + MC Dropout** | **0.8638** | **0.9087** | **0.8503** | Internal holdout (n=324) | Scan-level |
+| BraTS 2024 challenge submission † | 0.7499 | 0.9055 | 0.8124 | Official validation | Lesion-wise |
+
+† Representative result from the BraTS 2024 challenge paper (Court et al., arXiv 2405.18368). Lesion-wise DSC is structurally different from scan-level DSC — lower values do not imply a worse model.
+
+### 7b. Context — Pre-Treatment Glioma (Different Task, Not Directly Comparable)
+
+Shown for orientation only. These methods were trained and evaluated on pre-treatment glioma data (BraTS 2021/2023) where tumors appear substantially different.
+
+| Method | DSC TC ↑ | DSC WT ↑ | DSC ET ↑ | HD95 TC ↓ | HD95 WT ↓ | HD95 ET ↓ | Dataset |
+|--------|----------|----------|----------|-----------|-----------|-----------|---------|
+| BraTS 2023 winner (ensemble + augmentation) † | 0.8673 | 0.9005 | 0.8509 | 14.47 | — | 17.70 | BraTS 2023 val (lesion-wise) |
+| nnUNetFormer (Gao et al.) | 0.921 | 0.936 | 0.872 | 4.57 | 3.96 | 10.45 | BraTS 2021 (scan-level) |
+| SwinUNETR (Hatamizadeh et al.) | 0.831 | 0.852 | 0.799 | — | — | — | BraTS 2021 (scan-level) |
+| **Ours — 3D U-Net + MC Dropout** | **0.8638** | **0.9087** | **0.8503** | **5.65** | **6.11** | **5.74** | BraTS 2024 internal (scan-level) |
+
+† BraTS 2023 winner: "How we won BraTS 2023 Adult Glioma challenge? Just faking it!" (arXiv 2402.17317) — used synthetic data augmentation and model ensembling.
+
+**Takeaway:** Our single-model 3D U-Net sits between SwinUNETR and nnUNetFormer on pre-treatment benchmarks in terms of raw numbers, while operating on the harder post-treatment task. The HD95 values (5.65–6.11 mm) are competitive with scan-level methods on BraTS 2021.
+
+---
+
+## 8. Discussion
 
 **Strengths:**
 - Strong WT Dice (0.9087) — reliable delineation of the full tumor extent.
