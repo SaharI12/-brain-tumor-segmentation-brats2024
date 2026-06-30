@@ -8,8 +8,11 @@ BraTS2024-BraTS-GLI-ValidationData/
 processed/
 
 # Model checkpoints and predictions — large binary files
-checkpoints/
-predictions/
+/checkpoints/
+/checkpoints_v2/
+v2/checkpoints/*.pth
+v2/train_local.log
+/predictions/
 
 # Generated visualizations — reproducible from scripts
 exploration_output/
