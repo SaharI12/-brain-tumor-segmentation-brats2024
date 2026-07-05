@@ -92,6 +92,68 @@ See `ANALYSIS.md` for full discussion and comparison with published methods.
 
 ---
 
+## ✅ v2.1 — Attention U-Net (`v2/`)
+
+Second-generation model: same 4-modality input / MC Dropout innovation, upgraded with
+attention-gated skip connections, a stronger augmentation pipeline, and a persistent
+validation split. See `v2/V2_1_ARCHITECTURE.md` for the full architecture writeup.
+
+### 11. Attention U-Net Model & Training (`model_v2.py`, `dataset_v2.py`, `train_v2_1.py`)
+- **Architecture:** `UNet3DAttn` — identical encoder/decoder topology to `model.py`'s `UNet3D`, but each
+  skip connection passes through a soft attention gate (Oktay et al. 2018) gated by the decoder signal —
+  21.8M params (init_features=32)
+- **Augmentation:** random flips on all 3 axes, per-modality intensity scale/shift, Gaussian noise (`dataset_v2.py`)
+- **Persistent val split:** saved to `checkpoints_v2_1/val_split.json` on first run, reloaded on every
+  resume — guarantees the same 324 val subjects across the whole training run (unlike v1's reshuffle-by-seed)
+- **Training:** AdamW (lr=2e-4), 5-epoch linear warmup → cosine annealing (T_max=80), patience=35
+- **Outcome:** best checkpoint at **epoch 108** (mean val Dice 0.8870); training was interrupted by a
+  machine reboot at **epoch 143/300** (34/35 epochs without improvement — one epoch short of early
+  stopping), so `latest_checkpoint.pth` is resumable but not yet fully converged
+
+### 12. Evaluation (`evaluate_v2.py`)
+- Same Dice + HD95 methodology as `evaluate.py`, adapted for `UNet3DAttn` and the persistent val split
+- **Deterministic vs MC Dropout (20 passes), internal validation n=324:**
+
+| | Dice TC | Dice WT | Dice ET | Mean Dice | HD95 TC | HD95 WT | HD95 ET | Mean HD95 |
+|---|---|---|---|---|---|---|---|---|
+| Deterministic | 0.8791 | 0.9206 | 0.8613 | **0.8870** | 4.83 | 4.87 | 5.06 | **4.92** |
+| MC Dropout (20-pass mean) | 0.8794 | 0.9205 | 0.8616 | **0.8872** | 4.81 | 4.88 | 5.04 | **4.91** |
+
+- MC Dropout and deterministic inference are essentially identical here (Dice within 0.0003, HD95 within
+  0.02mm) — dropout at inference isn't hurting accuracy, so entropy-based uncertainty maps reflect genuine
+  predictive uncertainty rather than a degraded mean prediction
+
+### 13. Inference Report + Per-Pass Stability (`inference_report_v2.py`)
+- Per-subject figure: best tumor-containing axial slice, 4 panels (T1c | GT | Prediction | Diff map)
+- Aggregate BraTS-style metrics table (same style as v1's `inference_report.py`)
+- New for v2.1 — `--mc_passes N --per_pass_table`: tracks Dice/HD95 **per individual dropout pass**
+  (not just the pass-averaged prediction), aggregated over all 324 val subjects, to quantify pass-to-pass
+  stochastic variability:
+
+| MC Dropout, 20 individual passes (n=324 each) | Dice TC | Dice WT | Dice ET | Dice Mean | HD95 TC | HD95 WT | HD95 ET | HD95 Mean |
+|---|---|---|---|---|---|---|---|---|
+| **Mean ± Std across passes** | 0.8783±0.0005 | 0.9200±0.0002 | 0.8605±0.0005 | 0.8863±0.0004 | 4.89±0.13 | 5.01±0.11 | 5.11±0.13 | 5.00±0.12 |
+
+  Full 20-row per-pass table: `v2/montecarlo_v2_1/mc_per_pass_table.png` / `.csv`. Pass-to-pass std is tiny
+  relative to the mean — the model is stable under dropout stochasticity, so each individual pass is
+  already about as accurate as the mean prediction.
+- **Outputs** (moved out of the gitignored `exploration_output/` so key results are versioned):
+  - `v2/inference_report_v2_1/` — deterministic results (324 figures + `metrics_table.png`)
+  - `v2/montecarlo_v2_1/` — MC Dropout results (324 figures + `metrics_table.png` + `mc_per_pass_table.png`/`.csv`)
+
+### v2.1 vs v1 — Head to Head
+
+| | Dice TC | Dice WT | Dice ET | Mean Dice | HD95 TC | HD95 WT | HD95 ET | Mean HD95 |
+|---|---|---|---|---|---|---|---|---|
+| v1 — plain 3D U-Net | 0.8638 | 0.9087 | 0.8503 | 0.8743 | 5.65 | 6.11 | 5.74 | 5.83 |
+| v2.1 — Attention U-Net | 0.8791 | 0.9206 | 0.8613 | **0.8870** | 4.83 | 4.87 | 5.06 | **4.92** |
+
+v2.1 improves on every metric (+1.3 pts mean Dice, ~16% lower mean HD95), and note this is from a
+best checkpoint at epoch 108 of an interrupted run — not yet a fully early-stopped, converged model
+the way v1's 113-epoch result is.
+
+---
+
 ## Key Files
 
 | File | Purpose |
@@ -107,3 +169,9 @@ See `ANALYSIS.md` for full discussion and comparison with published methods.
 | `predict_submission.py` | NIfTI predictions for BraTS val subjects |
 | `draw_architecture.py` | Architecture diagram |
 | `ANALYSIS.md` | Full results analysis and comparison with literature |
+| `v2/model_v2.py` | Attention U-Net (`UNet3DAttn`) + `mc_inference()` |
+| `v2/dataset_v2.py` | Dataset with stronger augmentation + persistent val split |
+| `v2/train_v2_1.py` | v2.1 training loop (tuned hyperparameters) |
+| `v2/evaluate_v2.py` | Fast console-only evaluation for v2.1 |
+| `v2/inference_report_v2.py` | Per-subject figures + aggregate table + per-pass MC stability table |
+| `v2/V2_1_ARCHITECTURE.md` | v2.1 architecture writeup (attention gate mechanics, training setup) |
