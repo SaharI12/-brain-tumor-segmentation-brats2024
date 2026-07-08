@@ -11,8 +11,15 @@ processed/
 /checkpoints/
 /checkpoints_v2/
 v2/checkpoints/*.pth
+v2/checkpoints_v2_1/
 v2/train_local.log
 /predictions/
+
+# Bulk per-subject slice galleries — reproducible from scripts
+v2/*/slices/
+
+# Third-party pretrained weights — downloaded, not committed
+v2/external_models/
 
 # Generated visualizations — reproducible from scripts
 exploration_output/
