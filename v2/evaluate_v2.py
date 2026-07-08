@@ -81,6 +81,26 @@ def evaluate(args):
     print(f"Dice:  {dice_scores[0]:7.4f}  {dice_scores[1]:7.4f}  {dice_scores[2]:7.4f}  {float(np.nanmean(dice_scores)):7.4f}")
     print(f"HD95:  {hd_scores_safe[0]:7.2f}  {hd_scores_safe[1]:7.2f}  {hd_scores_safe[2]:7.2f}  {float(np.nanmean(hd_scores_safe)):7.2f}")
 
+    if args.json_out:
+        results = {
+            "model": "v2.1_attention_unet",
+            "checkpoint": args.checkpoint,
+            "n_subjects": len(val_files),
+            "mc_passes": args.mc_passes,
+            ("dice_mc" if args.mc_passes > 0 else "dice_det"): {
+                "TC": float(dice_scores[0]), "WT": float(dice_scores[1]),
+                "ET": float(dice_scores[2]), "mean": float(np.nanmean(dice_scores)),
+            },
+            ("hd95_mc" if args.mc_passes > 0 else "hd95_det"): {
+                "TC": float(hd_scores_safe[0]), "WT": float(hd_scores_safe[1]),
+                "ET": float(hd_scores_safe[2]), "mean": float(np.nanmean(hd_scores_safe)),
+            },
+        }
+        os.makedirs(os.path.dirname(os.path.abspath(args.json_out)), exist_ok=True)
+        with open(args.json_out, "w") as fh:
+            json.dump(results, fh, indent=2)
+        print(f"\nSaved: {args.json_out}")
+
 
 def parse_args():
     p = argparse.ArgumentParser(description="BraTS 2024 v2.1 (Attention U-Net) Evaluation")
@@ -91,6 +111,8 @@ def parse_args():
     p.add_argument("--init_features",  type=int, default=32)
     p.add_argument("--mc_passes",      type=int, default=0,
                    help="MC Dropout inference passes (0 = deterministic)")
+    p.add_argument("--json_out",       default=None,
+                   help="Optional path to also dump aggregate Dice/HD95 as JSON")
     return p.parse_args()
 
 

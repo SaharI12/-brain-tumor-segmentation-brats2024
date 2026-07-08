@@ -1,0 +1,20 @@
+{
+  "checkpoint": "checkpoints_v2_1/best_model.pth",
+  "mc_passes": 20,
+  "n_gallery_subjects": 10,
+  "entropy_by_region_mean": {
+    "TN": 0.00019151275046169758,
+    "TP": 0.028496475890278816,
+    "FP": 0.19600218534469604,
+    "FN": 0.11123006790876389
+  },
+  "entropy_by_region_std": {
+    "TN": 0.009680721908807755,
+    "TP": 0.11733375489711761,
+    "FP": 0.2533681094646454,
+    "FN": 0.21438616514205933
+  },
+  "n_calib_subjects": 50,
+  "ece": 0.008006434570550919,
+  "auroc_entropy_error_detector": 0.8956227593350363
+}
