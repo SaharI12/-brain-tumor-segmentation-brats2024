@@ -18,6 +18,9 @@ v2/train_local.log
 # Bulk per-subject slice galleries — reproducible from scripts
 v2/*/slices/
 
+# Run logs — reproducible from scripts, not project artifacts
+*.log
+
 # Third-party pretrained weights — downloaded, not committed
 v2/external_models/
 
