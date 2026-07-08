@@ -152,6 +152,59 @@ v2.1 improves on every metric (+1.3 pts mean Dice, ~16% lower mean HD95), and no
 best checkpoint at epoch 108 of an interrupted run — not yet a fully early-stopped, converged model
 the way v1's 113-epoch result is.
 
+### 14. Uncertainty Maps & Calibration (`visualize_uncertainty_v2.py`)
+- Ported v1's `visualize_uncertainty.py` to v2.1 — `UNet3DAttn`, `checkpoints_v2_1/best_model.pth`,
+  and the persistent `val_split.json` (instead of v1's reshuffle-by-seed sampling)
+- **Examples** (10 subjects, 20 MC passes, one paper-style figure per subject, black background):
+  same 5-panel layout as v1 — T1c | T1c+GT | T1c+MC-Pred | Entropy map | T1c+Entropy overlay
+- **Entropy by whole-tumor region** (TN/TP/FP/FN, aggregated over the 10 example subjects):
+
+| Region | Mean Entropy |
+|--------|-------------|
+| TN | 0.0002 |
+| TP | 0.0285 |
+| FP | 0.1960 |
+| FN | 0.1112 |
+
+  FP entropy is **~6.9× higher** than TP entropy — consistent with v1's ~6× finding; the model still
+  flags its own mistakes reliably after the attention-gate upgrade.
+- **New — voxel-level calibration analysis** (50 val subjects, subsampled, restricted to brain-mask
+  voxels to avoid trivial background dominating the stats):
+  - **Expected Calibration Error (ECE) = 0.0080** — softmax confidence is well calibrated against
+    empirical accuracy
+  - **AUROC = 0.8956** — using per-voxel entropy alone to predict "this voxel is misclassified"
+    substantially beats chance, i.e. entropy is a strong, usable signal for flagging unreliable
+    predictions for review
+- **Outputs**: `v2/uncertainty_vis_v2_1/{examples/example_NN_<subject>.png (x10), uncertainty_stats.png,
+  calibration.png, summary.json}`
+
+### 15. Baseline Comparison vs. Published Model (`run_baseline_segresnet.py`, `compare_baseline.py`)
+- Downloaded MONAI's published `brats_mri_segmentation` bundle (SegResNet, Myronenko 2018, trained on
+  BraTS 2018) — the only publicly downloadable pretrained BraTS checkpoint found with genuine trained
+  dropout (`dropout_prob=0.2`); SwinUNETR/nnU-Net BraTS21 alternatives have no usable dropout
+- Built an adapter pipeline (channel reorder, scale-invariant re-normalization, sliding-window
+  inference, per-channel binary-entropy MC Dropout) and evaluated it on our **same 324-subject
+  persistent val split** used for v2.1 — see `v2/BASELINE_COMPARISON.md` for full methodology
+
+| Model — Mode | Dice Mean | HD95 Mean |
+|---|---|---|
+| v2.1 (ours) — Deterministic | **0.8870** | **4.92** |
+| v2.1 (ours) — MC Dropout (20) | 0.8869 | 4.92 |
+| SegResNet (published, BraTS 2018) — Deterministic | 0.5791 | 18.09 |
+| SegResNet (published, BraTS 2018) — MC Dropout (20) | 0.5860 | 17.13 |
+
+- The published baseline substantially underperforms on our data (mean Dice 0.58 vs 0.887) — expected,
+  since it has never seen BraTS 2024's post-treatment scans (surgical cavities, radiation effects,
+  pseudoprogression absent from its BraTS 2018 pre-treatment training data). ET is hit hardest (0.396
+  vs 0.861), WT least (0.780 vs 0.921)
+- **Uncertainty comparison**: both models show the expected TN < TP < FN ≤ FP entropy ordering, but
+  ours discriminates errors far more sharply — FP entropy is **~6.9×** TP entropy for us vs only
+  **~2.6×** for the baseline (whole-tumor/WT-channel comparison) — i.e. dropout-based uncertainty
+  transfers qualitatively across domains but is much blunter on a model never trained on this data
+- **Outputs**: `v2/baseline_comparison/{comparison_table.png, entropy_comparison.png,
+  segresnet_results.json}`. Full caveats (domain shift, structurally different entropy formulas,
+  single vs. multiple dropout sites) in `v2/BASELINE_COMPARISON.md`
+
 ---
 
 ## Key Files
@@ -174,4 +227,8 @@ the way v1's 113-epoch result is.
 | `v2/train_v2_1.py` | v2.1 training loop (tuned hyperparameters) |
 | `v2/evaluate_v2.py` | Fast console-only evaluation for v2.1 |
 | `v2/inference_report_v2.py` | Per-subject figures + aggregate table + per-pass MC stability table |
+| `v2/visualize_uncertainty_v2.py` | v2.1 MC Dropout entropy maps + voxel-level calibration (ECE, AUROC) |
+| `v2/run_baseline_segresnet.py` | Runs MONAI's published SegResNet BraTS bundle (+ MC Dropout) on our val split |
+| `v2/compare_baseline.py` | Assembles the v1 / v2.1 / SegResNet Dice-HD95 and entropy comparison figures |
 | `v2/V2_1_ARCHITECTURE.md` | v2.1 architecture writeup (attention gate mechanics, training setup) |
+| `v2/BASELINE_COMPARISON.md` | Methodology + results for the published-model MC comparison |
