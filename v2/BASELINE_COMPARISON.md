@@ -144,3 +144,53 @@ python evaluate_v2.py --checkpoint checkpoints_v2_1/best_model.pth --mc_passes 0
 python evaluate_v2.py --checkpoint checkpoints_v2_1/best_model.pth --mc_passes 20 --json_out baseline_comparison/v21_mc20.json
 python compare_baseline.py                                            # -> baseline_comparison/{comparison_table,entropy_comparison}.png
 ```
+
+---
+
+## 6. MedNeXt baseline — known limitation (unresolved)
+
+A third baseline, MedNeXt (Ferreira et al., the BraTS 2023/2024 challenge-winning architecture,
+`Task241_BraTS_2024_Real` fold 0 — trained on **real BraTS 2024 data**, the closest domain match
+of any public checkpoint found), was attempted via `run_baseline_mednext.py`. **It does not have a
+trustworthy number and is deliberately excluded** from §3's table and from any presentation deck
+built off this repo. This section documents the investigation so it isn't silently repeated.
+
+**Symptom:** full 324-subject run (`baseline_comparison/mednext_results.json`) gives mean Dice
+≈0.378, mean HD95 ≈21.9mm — *worse* than SegResNet (§3), despite MedNeXt being trained on the
+actual target domain and SegResNet not. That inversion is the tell that something is still wrong,
+not a genuine finding about architecture quality.
+
+**Confirmed NOT the cause** (each checked directly, not just re-derived from docs):
+- **Channel order** — `[T1C, T1, T2, FLAIR]` in the script matches `plans.pkl`'s own
+  `modalities: {0: 'T1C', 1: 'T1', 2: 'T2', 3: 'FLAIR'}` exactly.
+- **Target spacing** — `plans.pkl` confirms `current_spacing = [1,1,1]`, same as our own 1mm
+  isotropic data, so no resampling step is missing.
+- **TC region formula** — the bundled `BraTS2024_Task1.md` states "Tumour Core (TC; labels 1, 3)",
+  which looked like it contradicted the script's `TC = {label 2, label 3}`. Tested both directly
+  against real predictions on 3 subjects: the script's existing `{2,3}` formula matches the data
+  far better (0.74 vs 0.50 Dice on one subject; 0.70 vs 0.19 on another) — the original `{2,3}`
+  choice was empirically correct, the general doc's labeling doesn't describe this checkpoint's
+  actual output-channel semantics. No change made.
+- **Missing test-time augmentation** — nnU-Net's standard `predict` pipeline always mirrors over
+  all 2³=8 combinations of the 3 spatial axes; this script ran a single un-mirrored pass. Implemented
+  `--tta` and smoke-tested on 5 subjects before committing to the ~7-hour full rerun: mean Dice
+  0.4225 → 0.4282, and WT actually got slightly *worse* (0.342 → 0.330). Marginal and inconsistent —
+  not the cause. No full TTA rerun was performed since the smoke test already ruled it out.
+
+**Still unchecked / open leads:**
+- nnU-Net tightly crops each case to its nonzero bounding box before inference; our `.h5` volumes
+  carry a fixed 160×208×160 size with more zero-padding than what the model trained on (its own
+  `plans.pkl` median training size is 142×175×136). Untested — plausible but not confirmed, and
+  not obviously large enough to explain a ~2× Dice gap on its own.
+- Confidence is high and *wrong* in failure cases (~99.97% mean max-softmax probability even when
+  predicting almost no tumor at all for a subject with a large GT lesion) — this rules out a
+  "confused/underfit" explanation and points more toward a systematic input mismatch, but the
+  specific mismatch hasn't been found.
+- Per-subject WT Dice is a wide, continuous spread (0.0–0.89 across a 20-subject probe, mean 0.44),
+  not a clean bimodal pass/fail split — consistent with a partial systematic degradation rather
+  than an all-or-nothing bug (which would usually show as a sharp cliff).
+
+**Bottom line:** two real bugs (axis order, label semantics — §0 history / `run_baseline_mednext.py`
+docstring) were found and fixed early, and TTA plus the channel/spacing/label-formula questions have
+since been ruled out. Whatever remains is not yet identified. Until it is, MedNeXt stays out of any
+reported comparison — reopen this investigation before citing a MedNeXt number anywhere.

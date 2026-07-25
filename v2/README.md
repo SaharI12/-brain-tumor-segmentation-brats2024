@@ -116,7 +116,7 @@ split** — a true head-to-head, not a literature-numbers comparison.
 | v2.1 (ours) — MC Dropout (20) | 0.8869 | 4.92 |
 | SegResNet (MONAI bundle, trained on BraTS 2018) — Deterministic | 0.5791 | 18.09 |
 | SegResNet — MC Dropout (20) | 0.5860 | 17.13 |
-| MedNeXt (Ferreira et al., BraTS 2023/2024 challenge winner) | *run in progress — see below* | |
+| MedNeXt (Ferreira et al., BraTS 2023/2024 challenge winner) | *unresolved — known limitation, see below* | |
 
 **SegResNet** (MONAI's published `brats_mri_segmentation` bundle) scores much lower on our data
 (0.58 vs 0.887 mean Dice) — expected: it never saw BraTS 2024's post-treatment scans (surgical
@@ -125,10 +125,14 @@ than ours (FP/TP entropy ratio 2.6× vs. our 6.9×) — a model trained on your 
 you a sharper uncertainty signal, not just better raw accuracy.
 
 **MedNeXt** (the actual BraTS-winning architecture, trained on real BraTS 2024 data — the closest
-domain match of any public checkpoint we found) is being evaluated now
-(`run_baseline_mednext.py`, n=324, 5 MC passes, background run). Two real bugs had to be fixed
-before the numbers were trustworthy — worth knowing about since they're the kind of thing that
-silently corrupts results without ever raising an error:
+domain match of any public checkpoint we found) does **not** have a trustworthy number yet and is
+excluded from the comparison table above and from any presentation deck built from this repo.
+Two real bugs were found and fixed early on (axis order, label semantics — see below), but the
+model still only reaches mean Dice ≈0.38 on our val split, and a deeper investigation ruled out
+the next most likely cause. This is now a documented open limitation, not a claimed result —
+full write-up: **[`BASELINE_COMPARISON.md` §6](BASELINE_COMPARISON.md#6-mednext-baseline--known-limitation-unresolved)**.
+
+Bugs already found and fixed (both confirmed via direct empirical checks, not just re-reading docs):
 
 1. **Axis order.** Our `.h5` files store volumes in nibabel's `(X,Y,Z)` order; MedNeXt was trained
    via SimpleITK, whose array convention is `(Z,Y,X)`. Our crop happens to make X and Z both 160,

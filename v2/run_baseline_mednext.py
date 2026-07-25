@@ -132,6 +132,35 @@ def mednext_region_masks(pred_class: torch.Tensor):
     return TC.long(), WT.long(), ET.long()
 
 
+MIRROR_AXES = [(), (2,), (3,), (4,), (2, 3), (2, 4), (3, 4), (2, 3, 4)]
+
+
+def tta_inference(model, image, inferer):
+    """nnU-Net-standard test-time augmentation: average softmax probabilities over all
+    2^3=8 combinations of flips along the 3 spatial axes (dims 2,3,4 of a (B,C,Z,Y,X)
+    tensor). nnU-Net's own `predict` pipeline applies this by default; this baseline
+    script originally ran a single un-mirrored forward pass only.
+
+    Tested empirically on 5 val subjects: TTA changes mean Dice from 0.4225 -> 0.4282
+    (WT actually drops slightly, 0.342 -> 0.330) — a marginal, inconsistent effect, NOT
+    the explanation for this checkpoint's low accuracy on our pipeline. Kept available via
+    --tta since it's still the technically-correct standard practice, but the real
+    accuracy gap (mean deterministic WT Dice ~0.44 on a 20-subject probe) has a different,
+    still-unidentified cause — see the investigation notes for candidates that remain
+    unchecked (tight nonzero-bbox cropping before inference, in particular).
+    """
+    probs_sum = None
+    for axes in MIRROR_AXES:
+        img = torch.flip(image, dims=axes) if axes else image
+        with torch.no_grad():
+            logits = inferer(inputs=img, network=model)
+        if axes:
+            logits = torch.flip(logits, dims=axes)
+        p = torch.softmax(logits, dim=1)
+        probs_sum = p if probs_sum is None else probs_sum + p
+    return probs_sum / len(MIRROR_AXES)
+
+
 def mc_inference_mednext(model, image, inferer, n_passes):
     """MC Dropout inference for the categorical-softmax MedNeXt model.
 
@@ -210,11 +239,14 @@ def evaluate(args):
         TC_gt, WT_gt, ET_gt = get_region_masks(seg_t)
         gt_r = torch.stack([TC_gt, WT_gt, ET_gt], dim=1).float()
 
-        # Deterministic (eval mode, no dropout)
-        with torch.no_grad():
-            det_logits = inferer(inputs=images_t, network=model)
-            det_logits = det_logits.permute(0, 1, 4, 3, 2)  # back to (B,C,X,Y,Z)
-            det_pred_class = det_logits.argmax(dim=1)
+        # Deterministic (eval mode, no dropout), optionally with 8-way mirror TTA
+        if args.tta:
+            det_probs = tta_inference(model, images_t, inferer)
+        else:
+            with torch.no_grad():
+                det_probs = torch.softmax(inferer(inputs=images_t, network=model), dim=1)
+        det_probs = det_probs.permute(0, 1, 4, 3, 2)  # back to (B,C,X,Y,Z)
+        det_pred_class = det_probs.argmax(dim=1)
         TC_p, WT_p, ET_p = mednext_region_masks(det_pred_class)
         det_pred_r = torch.stack([TC_p, WT_p, ET_p], dim=1).float()
         dice_det(y_pred=det_pred_r, y=gt_r)
@@ -250,6 +282,7 @@ def evaluate(args):
         "checkpoint": args.checkpoint,
         "n_subjects": len(val_files),
         "mc_passes": args.mc_passes,
+        "tta": args.tta,
         "dice_det": summarize(dice_det),
         "hd95_det": summarize(hd_det),
     }
@@ -287,6 +320,7 @@ def parse_args():
     p.add_argument("--val_split_json", default="checkpoints_v2_1/val_split.json")
     p.add_argument("--mc_passes", type=int, default=20)
     p.add_argument("--dropout_p", type=float, default=0.2)
+    p.add_argument("--tta", action="store_true", help="8-way mirror test-time augmentation on the deterministic pass")
     p.add_argument("--limit", type=int, default=None, help="Cap number of subjects (smoke testing)")
     p.add_argument("--out_dir", default="baseline_comparison")
     return p.parse_args()
