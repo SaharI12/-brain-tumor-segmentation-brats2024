@@ -127,9 +127,10 @@ python calibration_foreground_only.py --checkpoint checkpoints_v2_1/best_model.p
 python visualize_uncertainty_gif_v2.py --checkpoint checkpoints_v2_1/best_model.pth
 ```
 
-`checkpoints_v2_1/` (checkpoints + `val_split.json`) is gitignored — too large for git. If
-you're starting fresh, `train_v2_1.py` will regenerate `val_split.json` on first run; ping Sahar
-for the actual `best_model.pth` if you want the exact epoch-108 checkpoint rather than retraining.
+`checkpoints_v2_1/best_model.pth` (epoch 108, 261 MB) and `val_split.json` are committed via
+**Git LFS** — run `git lfs install` before cloning or you'll get a text pointer instead of weights.
+Everything else in `checkpoints_v2_1/` (including the resumable `latest_checkpoint.pth`) stays
+gitignored; `train_v2_1.py` regenerates `val_split.json` on first run if you're starting fresh.
 
 ---
 
@@ -144,7 +145,7 @@ for the actual `best_model.pth` if you want the exact epoch-108 checkpoint rathe
 | `inference_report_v2.py` | Per-subject figures + aggregate table + MC per-pass stability table |
 | `visualize_uncertainty_v2.py` | MC Dropout entropy maps + voxel-level calibration (ECE, AUROC) |
 | `calibration_foreground_only.py` | ECE + AUROC recomputed on tumor voxels only (background-excluded) |
-| `visualize_uncertainty_gif_v2.py` | Animated 3D / slice-sweep uncertainty GIFs (outputs gitignored) |
+| `visualize_uncertainty_gif_v2.py` | Animated 3D / slice-sweep uncertainty GIFs (outputs gitignored; one copy lives in `../assets/` as the root README's hero image) |
 | `build_entropy_extremes_examples.py` | Picks lowest/highest-entropy subjects for the paper's example figures |
 | `checkpoints_v2_1/` | Checkpoints + persistent val split (gitignored, large) |
 | `results_summary/` | Presentation-ready copy of the key figures/tables (see below) |
