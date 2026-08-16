@@ -53,13 +53,16 @@ predictive-entropy map. No ensembles, no multi-GPU training — everything here 
 
 ## Repo layout
 
-The root is the **v1 baseline** pipeline; `v2/` holds the attention model that produced the results
-above and is where active work lives.
+`unet3d_baseline/` is the plain 3D U-Net without attention gates, kept as the comparison baseline;
+`v2/` holds the attention-gated model that produced the results above. Both read the same
+preprocessed data and use the same held-out split.
 
 | Path | What it is |
 |---|---|
-| `preprocess.py` | Raw NIfTI → H5: normalize, remap label 4 → 3, crop to brain, pad to 160×208×160 |
-| `model.py`, `dataset.py`, `train.py`, `evaluate.py` | v1 plain 3D U-Net baseline |
+| `preprocess.py` | Raw NIfTI → H5: normalize, remap label 4 → 3, crop to brain, pad to 160×208×160 (shared by both models) |
+| `unet3d_baseline/model.py` | `UNet3D` without attention gates, `mc_inference()`, `get_region_masks()` |
+| `unet3d_baseline/dataset.py`, `unet3d_baseline/train.py` | Baseline dataset/split and training loop |
+| `unet3d_baseline/evaluate.py` | Baseline Dice + HD95 per region, deterministic or MC |
 | `v2/model_v2.py` | `UNet3DAttn`, `AttentionGate`, `mc_inference()` |
 | `v2/dataset_v2.py`, `v2/train_v2_1.py` | Augmented dataset with a persistent split; training loop |
 | `v2/evaluate_v2.py` | Dice + HD95 per region, deterministic or MC |
@@ -67,8 +70,6 @@ above and is where active work lives.
 | `v2/calibration_foreground_only.py` | The same calibration analysis with background excluded |
 | `v2/visualize_uncertainty_gif_v2.py` | Animated entropy sweeps, including the GIF at the top of this file |
 | `v2/results_summary/` | Presentation-ready copy of the headline figures and tables |
-| `v2/README.md`, `v2/V2_1_ARCHITECTURE.md` | Deep dive: what changed from v1, attention-gate mechanics |
-| `PROGRESS.md`, `ANALYSIS.md` | Phase-by-phase project history and literature comparison |
 
 ## Reproducing
 
@@ -80,6 +81,9 @@ python preprocess.py
 
 # 2. Train the attention model (add --resume to continue from latest_checkpoint.pth)
 cd v2 && python train_v2_1.py
+
+# 2b. Or train the plain 3D U-Net baseline for comparison
+cd unet3d_baseline && python train.py --data_dir ../processed/train --ckpt_dir checkpoints
 
 # 3. Dice + HD95 on the held-out split, deterministic and with MC Dropout
 python evaluate_v2.py --checkpoint checkpoints_v2_1/best_model.pth --mc_passes 0

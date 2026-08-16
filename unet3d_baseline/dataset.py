@@ -78,13 +78,13 @@ def get_split_loaders(train_dir, val_split=0.2, batch_size=1, num_workers=4, see
 
 
 if __name__ == "__main__":
-    ds = BraTSDataset("processed/train", augment=True)
+    ds = BraTSDataset("../processed/train", augment=True)
     print(f"Train subjects: {len(ds)}")
     images, seg = ds[0]
     print(f"Images: {images.shape}  dtype={images.dtype}  min={images.min():.4f}  max={images.max():.4f}")
     print(f"Seg:    {seg.shape}  dtype={seg.dtype}  labels={seg.unique().tolist()}")
 
-    train_loader, val_loader = get_split_loaders("processed/train")
+    train_loader, val_loader = get_split_loaders("../processed/train")
     print(f"Train batches: {len(train_loader)}  Val batches: {len(val_loader)}")
     imgs, segs = next(iter(train_loader))
     print(f"Batch images: {imgs.shape}  Batch seg: {segs.shape}")

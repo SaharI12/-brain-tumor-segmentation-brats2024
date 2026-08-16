@@ -1,9 +1,9 @@
 """
 v1-vs-v2 comparison tables (models as rows, metrics as columns) as PNGs.
 
-Numbers are the same ones documented in ../PROGRESS.md ("v2.1 vs v1 — Head to Head")
-and results_summary/RESULTS_SUMMARY.md (§1) — this script just renders them as
-white-background / black-text table images for slides/reports.
+Numbers are hardcoded below from evaluate_v2.py's runs (results_summary/v21_det.json)
+and the uncertainty analysis — this script just renders them as white-background /
+black-text table images for slides/reports.
 
 Outputs:
   results_summary/v1_vs_v2_results_table.png   — Dice / HD95

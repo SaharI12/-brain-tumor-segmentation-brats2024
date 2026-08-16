@@ -91,7 +91,7 @@ def evaluate(args):
 def parse_args():
     p = argparse.ArgumentParser(description="BraTS 2024 Evaluation")
     p.add_argument("--checkpoint",    required=True, help="Path to best_model.pth")
-    p.add_argument("--data_dir",      default="processed/train")
+    p.add_argument("--data_dir",      default="../processed/train")
     p.add_argument("--val_split",     type=float, default=0.2)
     p.add_argument("--seed",          type=int,   default=42)
     p.add_argument("--init_features", type=int,   default=16)

@@ -8,7 +8,7 @@ BraTS2024-BraTS-GLI-ValidationData/
 processed/
 
 # Model checkpoints and predictions — large binary files
-/checkpoints/
+/unet3d_baseline/checkpoints/
 /checkpoints_v2/
 v2/checkpoints/*.pth
 v2/checkpoints_v2_1/*
