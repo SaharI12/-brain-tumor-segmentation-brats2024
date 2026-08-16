@@ -2,7 +2,7 @@
 
 This folder is the second generation of the project's segmentation model. If you're picking this
 up for the first time, read this file top to bottom — it's the map. The deep-dive docs
-(architecture mechanics, baseline methodology) are linked inline rather than repeated here.
+(architecture mechanics) are linked inline rather than repeated here.
 
 **Start here if you only have five minutes:** §1 (what changed and why) and §2 (results table).
 
@@ -10,7 +10,7 @@ up for the first time, read this file top to bottom — it's the map. The deep-d
 
 ## 0. How this relates to the root project
 
-The root of the repo (`data_playing.py`, `preprocess.py`, `model.py`, `train.py`, ...) is **v1** —
+The root of the repo (`preprocess.py`, `model.py`, `train.py`, ...) is **v1** —
 a plain 3D U-Net, fully documented in the root `CLAUDE.md` and `PROGRESS.md`. It hit mean Dice
 0.8743 and established the project's core innovation: **Monte Carlo Dropout** for uncertainty
 estimation (dropout stays active at inference; entropy across stochastic passes flags likely
@@ -100,57 +100,11 @@ property.
   "this voxel is misclassified." In other words: the uncertainty map is directly usable to flag
   low-confidence regions for radiologist review, not just a nice-looking visualization.
 
-Outputs: `uncertainty_vis_v2_1/` (canonical) and `results_summary/` (presentation copy — see §6).
+Outputs: `uncertainty_vis_v2_1/` (canonical) and `results_summary/` (presentation copy — see §5).
 
 ---
 
-## 4. How our model compares to published, pretrained BraTS models
-
-Two published checkpoints were downloaded and run through an adapter pipeline (channel reorder,
-normalization, sliding-window inference, MC Dropout) on **our own identical 324-subject val
-split** — a true head-to-head, not a literature-numbers comparison.
-
-| Model — Mode | Dice Mean | HD95 Mean (mm) |
-|---|---|---|
-| **v2.1 (ours) — Deterministic** | **0.8870** | **4.92** |
-| v2.1 (ours) — MC Dropout (20) | 0.8869 | 4.92 |
-| SegResNet (MONAI bundle, trained on BraTS 2018) — Deterministic | 0.5791 | 18.09 |
-| SegResNet — MC Dropout (20) | 0.5860 | 17.13 |
-| MedNeXt (Ferreira et al., BraTS 2023/2024 challenge winner) | *unresolved — known limitation, see below* | |
-
-**SegResNet** (MONAI's published `brats_mri_segmentation` bundle) scores much lower on our data
-(0.58 vs 0.887 mean Dice) — expected: it never saw BraTS 2024's post-treatment scans (surgical
-cavities, radiation effects, pseudoprogression). Its MC-dropout uncertainty is also much blunter
-than ours (FP/TP entropy ratio 2.6× vs. our 6.9×) — a model trained on your actual domain gives
-you a sharper uncertainty signal, not just better raw accuracy.
-
-**MedNeXt** (the actual BraTS-winning architecture, trained on real BraTS 2024 data — the closest
-domain match of any public checkpoint we found) does **not** have a trustworthy number yet and is
-excluded from the comparison table above and from any presentation deck built from this repo.
-Two real bugs were found and fixed early on (axis order, label semantics — see below), but the
-model still only reaches mean Dice ≈0.38 on our val split, and a deeper investigation ruled out
-the next most likely cause. This is now a documented open limitation, not a claimed result —
-full write-up: **[`BASELINE_COMPARISON.md` §6](BASELINE_COMPARISON.md#6-mednext-baseline--known-limitation-unresolved)**.
-
-Bugs already found and fixed (both confirmed via direct empirical checks, not just re-reading docs):
-
-1. **Axis order.** Our `.h5` files store volumes in nibabel's `(X,Y,Z)` order; MedNeXt was trained
-   via SimpleITK, whose array convention is `(Z,Y,X)`. Our crop happens to make X and Z both 160,
-   so feeding the wrong order in is *shape-compatible* — no crash, no obvious symptom — but it
-   scrambles left-right vs. superior-inferior structure. Caught via a centroid check
-   (predicted-vs-GT tumor centroid was off by ~30 voxels on one axis); fixed by transposing spatial
-   axes before inference and back afterward. WT Dice on a test subject went 0.24 → 0.66.
-2. **Label semantics.** MedNeXt outputs a 5th class, RC (resection cavity), which our own GT
-   doesn't have. The first draft of the script merged RC into our ET class on an unverified
-   assumption. Checked empirically instead: predicted RC voxels overlap 80–99% with our GT's
-   *edema* label, not ET. Now RC is excluded from all three regions entirely, matching MedNeXt's
-   own official region definitions.
-
-Full methodology and caveats for both baselines: **[`BASELINE_COMPARISON.md`](BASELINE_COMPARISON.md)**.
-
----
-
-## 5. How to reproduce
+## 4. How to reproduce
 
 ```bash
 # Train (fresh run or --resume from latest_checkpoint.pth)
@@ -163,25 +117,23 @@ python evaluate_v2.py --checkpoint checkpoints_v2_1/best_model.pth --mc_passes 2
 
 # Per-subject figures + aggregate metrics table
 python inference_report_v2.py --checkpoint checkpoints_v2_1/best_model.pth \
-    --out_dir exploration_output/inference_report_v2_1
+    --out_dir inference_report_v2_1
 
-# Uncertainty maps + calibration
+# Uncertainty maps + calibration (ECE, AUROC)
 python visualize_uncertainty_v2.py --checkpoint checkpoints_v2_1/best_model.pth
+python calibration_foreground_only.py --checkpoint checkpoints_v2_1/best_model.pth
 
-# Published-baseline comparisons
-python run_baseline_segresnet.py
-python run_baseline_mednext.py --mc_passes 20   # slow — sliding-window inference, ~10-12hr at full scale
-python compare_baseline.py
+# Animated uncertainty GIFs (outputs to uncertainty_gif_v2_1/, gitignored)
+python visualize_uncertainty_gif_v2.py --checkpoint checkpoints_v2_1/best_model.pth
 ```
 
-`checkpoints_v2_1/` (checkpoints + `val_split.json`) and `external_models/` (downloaded
-third-party weights) are gitignored — too large for git, and reproducible/re-downloadable. If
+`checkpoints_v2_1/` (checkpoints + `val_split.json`) is gitignored — too large for git. If
 you're starting fresh, `train_v2_1.py` will regenerate `val_split.json` on first run; ping Sahar
 for the actual `best_model.pth` if you want the exact epoch-108 checkpoint rather than retraining.
 
 ---
 
-## 6. File map
+## 5. File map
 
 | File / folder | What it is |
 |---|---|
@@ -191,19 +143,16 @@ for the actual `best_model.pth` if you want the exact epoch-108 checkpoint rathe
 | `evaluate_v2.py` | Fast console-only Dice/HD95 evaluation, deterministic or MC |
 | `inference_report_v2.py` | Per-subject figures + aggregate table + MC per-pass stability table |
 | `visualize_uncertainty_v2.py` | MC Dropout entropy maps + voxel-level calibration (ECE, AUROC) |
-| `run_baseline_segresnet.py` | Runs MONAI's published SegResNet bundle (+ MC Dropout) on our val split |
-| `run_baseline_mednext.py` | Runs the published MedNeXt checkpoint (+ MC Dropout) on our val split |
-| `mednext_arch/` | MedNeXt architecture source (third-party, needed to load the checkpoint) |
-| `compare_baseline.py` | Assembles the v2.1 / SegResNet / MedNeXt comparison figures |
+| `calibration_foreground_only.py` | ECE + AUROC recomputed on tumor voxels only (background-excluded) |
+| `visualize_uncertainty_gif_v2.py` | Animated 3D / slice-sweep uncertainty GIFs (outputs gitignored) |
+| `build_entropy_extremes_examples.py` | Picks lowest/highest-entropy subjects for the paper's example figures |
 | `checkpoints_v2_1/` | Checkpoints + persistent val split (gitignored, large) |
-| `external_models/` | Downloaded third-party pretrained weights (gitignored, large) |
 | `results_summary/` | Presentation-ready copy of the key figures/tables (see below) |
-| `uncertainty_vis_v2_1/`, `inference_report_v2_1/`, `montecarlo_v2_1/`, `baseline_comparison/` | Canonical (reproducible) script outputs |
+| `uncertainty_vis_v2_1/`, `inference_report_v2_1/`, `montecarlo_v2_1/` | Canonical (reproducible) script outputs |
 | `V2_1_ARCHITECTURE.md` | Full architecture writeup — attention gate mechanics, training setup, per-block param counts |
-| `BASELINE_COMPARISON.md` | Full methodology + caveats for the SegResNet/MedNeXt comparisons |
 
 **`results_summary/`** is worth knowing about specifically: it's a flat, self-contained copy of
-the headline figures/tables from `uncertainty_vis_v2_1/` and `baseline_comparison/`, plus a
+the headline figures/tables from `uncertainty_vis_v2_1/`, plus a
 `RESULTS_SUMMARY.md` index — meant to be zipped and shared (e.g. for a presentation) without
 pulling in the full 324-subject output trees. The canonical, reproducible-from-scripts outputs
 live in the other folders; `results_summary/` is a snapshot, regenerate it by hand if the
@@ -211,12 +160,10 @@ underlying numbers change.
 
 ---
 
-## 7. Where to go next
+## 6. Where to go next
 
 - Full project history phase-by-phase (both v1 and v2.1): root **`PROGRESS.md`**
 - v1 architecture/training/results and literature comparison: root **`CLAUDE.md`**, root
   **`ANALYSIS.md`**
 - Attention gate mechanics, per-block param breakdown, full training/inference CLI reference:
   **`V2_1_ARCHITECTURE.md`**
-- Baseline comparison methodology, caveats, entropy-formula differences between models:
-  **`BASELINE_COMPARISON.md`**

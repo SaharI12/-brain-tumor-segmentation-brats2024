@@ -38,3 +38,14 @@ SUGGESTIONS.md
 __pycache__/
 .DS_Store
 /GIT_WORKFLOW.md
+
+# GIF gallery outputs — reproducible from visualize_uncertainty_gif_v2.py
+v2/uncertainty_gif_v2_1/
+
+# Paper / course documents — kept locally, not in git
+*.docx
+*.pptx
+.~lock.*
+
+# Old submission artifacts
+predictions.zip
