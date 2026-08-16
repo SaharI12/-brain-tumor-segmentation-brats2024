@@ -167,6 +167,57 @@ def make_subject_figure(subj: dict, out_path: Path, mc_passes: int, entropy_max_
     print(f"  Saved: {out_path}")
 
 
+def make_entropy_histogram(subj: dict, out_path: Path, mc_passes: int, entropy_max_global: float = None,
+                            region_mask: np.ndarray = None, region_label: str = "entire volume",
+                            bin_width: float = 0.1):
+    """
+    Histogram of per-voxel predictive entropy. By default over the ENTIRE
+    volume (every voxel); pass `region_mask` (boolean, same shape as the
+    entropy volume) to restrict to a subset instead — e.g. the tumor region
+    (GT ∪ Pred) — and `region_label` to name that subset in the title.
+
+    Log-scale y-axis: background voxels (near-zero entropy) outnumber
+    tumor/boundary voxels by ~2 orders of magnitude, so a linear count axis
+    would hide everything but the first bin.
+    """
+    BG = "white"
+    ACCENT = "#0891B2"     # same validated light-surface accent as visualize_3d_subject.py's CHART_LABEL_COLORS
+    MEAN_COLOR = "#E4572E"  # same validated light-surface accent as visualize_3d_subject.py's CHART_TUMOR_COLOR
+
+    entropy_full = subj["entropy"]
+    entropy = entropy_full[region_mask] if region_mask is not None else entropy_full.ravel()
+    name = Path(subj["name"]).stem
+    x_max = entropy_max_global if entropy_max_global is not None else float(entropy.max())
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    fig.patch.set_facecolor(BG)
+    ax.set_facecolor(BG)
+
+    bin_edges = np.arange(0, x_max + bin_width, bin_width)
+    ax.hist(entropy, bins=bin_edges, color=ACCENT, edgecolor="white", linewidth=0.5, log=True)
+
+    mean_val = float(entropy.mean())
+    ax.axvline(mean_val, color=MEAN_COLOR, linestyle="--", linewidth=1.5)
+    ax.text(mean_val, ax.get_ylim()[1], f" mean = {mean_val:.4f}", color=MEAN_COLOR,
+            fontsize=8.5, va="top", ha="left")
+
+    ax.set_xlim(0, x_max)
+    ax.set_xlabel("Predictive entropy (nats)", color="black", fontsize=10)
+    ax.set_ylabel("Voxel count (log scale)", color="black", fontsize=10)
+    ax.set_title(f"{name} — entropy distribution, {region_label} ({mc_passes}-pass MC Dropout)",
+                 color="black", fontsize=11, fontweight="bold", pad=10)
+    ax.tick_params(colors="black", labelsize=9)
+    for sp in ax.spines.values():
+        sp.set_color("#888888")
+    ax.grid(color="#cccccc", linewidth=0.7, axis="y")
+
+    plt.tight_layout()
+    plt.savefig(str(out_path), dpi=130, bbox_inches="tight", pad_inches=0.05,
+                facecolor=fig.get_facecolor())
+    plt.close()
+    print(f"  Saved: {out_path}")
+
+
 # ── Entropy Stats ────────────────────────────────────────────────────────────
 
 def make_stats(subjects: list, out_path: Path):

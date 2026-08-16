@@ -1,0 +1,14 @@
+{
+  "checkpoint": "checkpoints_v2_1/best_model.pth",
+  "mc_passes": 20,
+  "n_screened": 50,
+  "screen_seed": 7,
+  "low_entropy_subject": {
+    "name": "BraTS-GLI-02249-100",
+    "tumor_mean_entropy": 0.01571759022772312
+  },
+  "high_entropy_subject": {
+    "name": "BraTS-GLI-02123-102",
+    "tumor_mean_entropy": 0.18076737225055695
+  }
+}

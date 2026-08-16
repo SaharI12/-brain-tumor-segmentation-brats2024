@@ -141,16 +141,36 @@ validation split. See `v2/V2_1_ARCHITECTURE.md` for the full architecture writeu
   - `v2/inference_report_v2_1/` — deterministic results (324 figures + `metrics_table.png`)
   - `v2/montecarlo_v2_1/` — MC Dropout results (324 figures + `metrics_table.png` + `mc_per_pass_table.png`/`.csv`)
 
-### v2.1 vs v1 — Head to Head
+### v2.1 vs v1 — Head to Head (accuracy + uncertainty)
 
-| | Dice TC | Dice WT | Dice ET | Mean Dice | HD95 TC | HD95 WT | HD95 ET | Mean HD95 |
-|---|---|---|---|---|---|---|---|---|
-| v1 — plain 3D U-Net | 0.8638 | 0.9087 | 0.8503 | 0.8743 | 5.65 | 6.11 | 5.74 | 5.83 |
-| v2.1 — Attention U-Net | 0.8791 | 0.9206 | 0.8613 | **0.8870** | 4.83 | 4.87 | 5.06 | **4.92** |
+| Metric | v1 — Plain 3D U-Net | v2.1 — Attention U-Net |
+|---|---|---|
+| Dice TC | 0.8638 | **0.8791** |
+| Dice WT | 0.9087 | **0.9206** |
+| Dice ET | 0.8503 | **0.8613** |
+| Dice Mean | 0.8743 | **0.8870** |
+| HD95 TC (mm) | 5.65 | **4.83** |
+| HD95 WT (mm) | 6.11 | **4.87** |
+| HD95 ET (mm) | 5.74 | **5.06** |
+| HD95 Mean (mm) | 5.83 | **4.92** |
+| Entropy TN | not computed | 0.0002 |
+| Entropy TP | 0.039 | 0.0285 |
+| Entropy FP | 0.236 | 0.1960 |
+| Entropy FN | ~0.20 | 0.1112 |
+| FP/TP entropy ratio | ~6.0× | ~6.9× |
+| ECE (calibration) | not computed | 0.0080 |
+| AUROC (entropy as error detector) | not computed | 0.8956 |
+| Eval set | own 80/20 holdout, reshuffled split | persistent 324-subject val split |
 
-v2.1 improves on every metric (+1.3 pts mean Dice, ~16% lower mean HD95), and note this is from a
-best checkpoint at epoch 108 of an interrupted run — not yet a fully early-stopped, converged model
-the way v1's 113-epoch result is.
+v2.1 improves on every accuracy metric (+1.3 pts mean Dice, ~16% lower mean HD95) and preserves the
+qualitative uncertainty behavior (FP entropy » TP entropy, ratio even slightly higher: 6.0× → 6.9×) —
+this is from a best checkpoint at epoch 108 of an interrupted run, not yet a fully early-stopped,
+converged model the way v1's 113-epoch result is. **Caveats on the comparison:** v1's entropy numbers
+are quoted from `ANALYSIS.md` §6b (script output not regenerated on disk — gitignored) and were
+measured on v1's own reshuffled holdout, not the persistent split v2.1 uses; v1 has no TN entropy, ECE,
+or AUROC figures because `visualize_uncertainty.py` didn't compute a calibration analysis — only
+`visualize_uncertainty_v2.py` added ECE/AUROC. So the Dice/HD95 rows are a clean head-to-head, but the
+entropy/ECE/AUROC rows are directionally comparable, not a controlled rerun on identical data.
 
 ### 14. Uncertainty Maps & Calibration (`visualize_uncertainty_v2.py`)
 - Ported v1's `visualize_uncertainty.py` to v2.1 — `UNet3DAttn`, `checkpoints_v2_1/best_model.pth`,
