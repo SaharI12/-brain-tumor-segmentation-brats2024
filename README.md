@@ -50,57 +50,6 @@ predictive-entropy map. No ensembles, no multi-GPU training — everything here 
 - **Cost** — ~48 h to train (best checkpoint at epoch 108); 0.6 s for a single forward pass over a
   full volume, 11.6 s for the full 20-pass MC inference.
 
-## Results
-
-Held-out split, 324 subjects. The baseline is a capacity-matched plain 3D U-Net (v1) trained on the
-same data, so the comparison isolates the attention gates and the stronger augmentation rather than
-confounding them with model capacity.
-
-| Model | Dice TC | Dice WT | Dice ET | **Dice mean** | HD95 TC | HD95 WT | HD95 ET | **HD95 mean (mm)** |
-|---|---|---|---|---|---|---|---|---|
-| Plain 3D U-Net (baseline) | 0.8638 | 0.9087 | 0.8503 | 0.8743 | 5.65 | 6.11 | 5.74 | 5.83 |
-| Attention U-Net, deterministic | 0.8791 | 0.9206 | 0.8613 | **0.8870** | 4.83 | 4.87 | 5.06 | **4.92** |
-| Attention U-Net, MC Dropout (20 passes) | 0.8791 | 0.9205 | 0.8612 | 0.8869 | 4.84 | 4.85 | 5.07 | 4.92 |
-
-The attention gates improve every region and every metric, with the largest relative gain on
-boundary quality (~16% lower mean HD95). MC Dropout leaves accuracy essentially untouched — that is
-the intent. Dropout sits in three blocks to generate uncertainty, not to boost Dice; the payoff is
-the entropy map, not a fourth decimal place.
-
-## Does the uncertainty mean anything?
-
-Three checks, all on the same holdout.
-
-**1. Entropy separates errors from correct predictions** (20 passes, whole-tumor binarization):
-
-| Voxel outcome | Mean entropy |
-|---|---|
-| True negative (correct background) | 0.0002 |
-| True positive (correct tumor) | 0.0285 |
-| False negative | 0.1112 |
-| False positive | 0.1960 |
-
-False positives carry ~6.9× the entropy of true positives, false negatives ~3.9×. The asymmetry is
-itself informative: when the model hallucinates tumor it tends to know it is unsure, whereas a
-minority of missed voxels are missed confidently.
-
-**2. Whole-brain calibration looks excellent** — expected calibration error **0.008**, and entropy
-alone detects misclassified voxels at **AUROC 0.896** (50 subjects, brain-mask restricted).
-
-**3. Tumor-only calibration tells the honest story.** Background is 98.8% of the volume and is
-predicted correctly with near-certainty, so it dominates every confidence bin. Restricted to
-foreground voxels, mean confidence is 0.983 against an accuracy of 0.846, ECE rises to **0.137**, and
-the error-detection AUROC drops to **0.742**.
-
-<p align="center">
-  <img src="v2/results_summary/calibration_foreground_only.png" width="85%"
-       alt="Reliability diagram and ROC curve computed on tumor voxels only">
-</p>
-
-So the entropy map is a useful pointer to regions of a contour worth double-checking — but within
-tumor tissue it is not a calibrated probability, and it should not be read as one. A worked example
-of a high-entropy subject is in
-[`v2/results_summary/examples_entropy_extremes/`](v2/results_summary/examples_entropy_extremes/).
 
 ## Repo layout
 
@@ -156,7 +105,7 @@ The BraTS 2024 GLI data itself is not in this repo — request access from the c
 
 ## Authors
 
-Hadas Avraham and Sahar Ifrah — Tel Aviv University.
+Hadas Avraham and Sahar Ifrah, Tel Aviv University.
 
 Key references: [Attention U-Net](https://arxiv.org/abs/1804.03999) (Oktay et al., 2018),
 [MC Dropout](https://arxiv.org/abs/1506.02142) (Gal & Ghahramani, 2016),
