@@ -91,7 +91,11 @@ def build_table(model_labels, col_labels, row_data, better_model, title, footnot
     footnote_block_h = FOOTNOTE_LINE_H * n_footnote_lines + FOOTNOTE_PAD
 
     row_label_w = max(len(m) for m in model_labels)
-    fig_w = 1.4 * n_cols + 0.09 * row_label_w + 1.6
+    # Column width follows the widest cell so long values ("0.8789 ± 0.1417") get the
+    # room they need; short-valued tables stay at the original 1.4in per column.
+    widest_cell = max(len(str(v)) for row in row_data.values() for v in row)
+    col_w = max(1.4, 0.105 * widest_cell + 0.35)
+    fig_w = col_w * n_cols + 0.09 * row_label_w + 1.6
     fig_h = TOP_MARGIN + TITLE_H + table_block_h + footnote_block_h
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
     fig.patch.set_facecolor("white")
